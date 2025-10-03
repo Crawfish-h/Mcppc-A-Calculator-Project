@@ -4,6 +4,7 @@
 #include <vector>
 #include <type_traits>
 #include <utility>
+#include <optional>
 #include "Print.h"
 #include "Match.h"
 
@@ -20,14 +21,37 @@ bool String_Is_Digit(const std::string& string)
     return true;
 }
 
-void Eval_Tokens(std::vector<std::string>& tokens, bool expect_Right_Num = false)
+bool Find_Next_Value(const std::vector<std::string>& tokens, size_t i)
 {
-    std::pair<int, bool> Value(100, true);
-    Match(Value, Case());
-
-    for (const std::string& token : tokens)
+    for (auto& token : tokens)
     {
         
+    }
+}
+
+void Eval_Tokens(std::vector<std::string>& tokens)
+{
+    for (size_t i = 0; i < tokens.size(); i++)
+    {
+        if (tokens[i] == "+")
+        {
+            if (i == 0 || String_Is_Digit(tokens[i]) == false)
+            {
+                tokens.clear();
+                Print("Error: expected number left of operator.\n");
+                return;
+            }else if (i == tokens.size() - 1 || String_Is_Digit(tokens[i + 1]) == false)
+            {
+                tokens.clear();
+                Print("Error: expected number right of operator.\n");
+                return;
+            }else
+            {
+                double sum = std::stod(tokens[i - 1]) + std::stod(tokens[i + 1]);
+                tokens[i + 1] = std::to_string(sum);
+            }
+            
+        }
     }
 }
 
@@ -39,6 +63,17 @@ void Calculator_Loop()
     bool expect_Num = false;
     double left_Num = 0;
     double right_Num = 0;
+
+
+    std::pair<int, bool> value(1910, true);
+    int a = 10;
+    int b = 2002;
+
+    Match(a, value)
+    .Case(10, {191, false}, [&]{ Print("int a: {}\n", a); })
+    .Case(100, {191, true}, [&]{ Print("int b: {}\n", b); })
+    .Case(10, {191, true}, []{ Print("2 + 6: {}\n", 2 + 6); })
+    .Default([]{ Print("Default\n"); });
 
     while (input != "exit")
     {

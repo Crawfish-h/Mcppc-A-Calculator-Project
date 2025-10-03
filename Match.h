@@ -2,43 +2,57 @@
 #include <vector>
 #include <type_traits>
 #include <functional>
+#include <tuple>
+#include <optional>
+#include <iostream>
 
-/*template<typename T>
-class Case
+template<typename... Args>
+void Test(Args&&... values)
 {
-public:
-    Case(T& value, std::function<void()> block)
+    ([&]
     {
-        Value = &value;
-        Block = block;
-    }
-    
-    T* Value;
-    std::function<void()> Block;
-};*/
+        std::cout << values;
+    }(), ...);
+}
 
-
-
-template<typename T>
+template<typename... Args>
 class Match
 {
-    Case(T& value)
+public:
+    Match(Args... values)
     {
-        
+        Found_Value = false;
+        Values = { values... };
     }
 
-    T Match(T& value)
+    template<typename F>
+    Match<Args...>& Case(Args... values, F block)
     {
-        std::vector<T> case_Values;
-        for (auto acase : { cases... })
+        std::tuple<Args...> case_Values(values...);
+
+        if (case_Values == Values)
         {
-            if (*acase.Value == Match_Value)
-            {
-                acase.Block();
-                return *acase.Value;
-            }
+            block();
+            Values = case_Values;
+            Found_Value = true;
         }
 
-        return value;
+        return *this;
     }
+
+    template<typename F>
+    std::optional<std::tuple<Args...>> Default(F block = [](){})
+    {
+        if (Found_Value == false)
+        {
+            block();
+            return {};
+        }
+        
+        return Values;
+    }
+
+private:
+    bool Found_Value;
+    std::tuple<Args...> Values;
 };
