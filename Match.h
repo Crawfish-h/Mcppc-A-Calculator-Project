@@ -7,15 +7,6 @@
 #include <iostream>
 
 template<typename... Args>
-void Test(Args&&... values)
-{
-    ([&]
-    {
-        std::cout << values;
-    }(), ...);
-}
-
-template<typename... Args>
 class Match
 {
 public:

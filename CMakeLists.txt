@@ -10,6 +10,7 @@ add_executable(
     ${PROJECT_SOURCE_DIR}/Calculator_Loop.h
     ${PROJECT_SOURCE_DIR}/Print.h
     ${PROJECT_SOURCE_DIR}/Match.h
+    ${PROJECT_SOURCE_DIR}/Util.h
     ${PROJECT_SOURCE_DIR}/Double_Operations.cpp
     ${PROJECT_SOURCE_DIR}/Double_Operations.h
 )
