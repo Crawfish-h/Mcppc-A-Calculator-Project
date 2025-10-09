@@ -4,7 +4,6 @@
 #include <functional>
 #include <tuple>
 #include <optional>
-#include <iostream>
 
 template<typename... Args>
 class Match

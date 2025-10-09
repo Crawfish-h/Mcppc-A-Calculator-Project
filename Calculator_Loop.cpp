@@ -4,6 +4,7 @@
 #include <vector>
 #include <type_traits>
 #include <ranges>
+#include <utility>
 #include "Print.h"
 #include "Match.h"
 #include "Util.h"
@@ -39,13 +40,10 @@ bool Eval_Basic_Op(size_t i, std::vector<std::string>& tokens)
     {
         if (i == 0 || Is_Digit(tokens[i - 1]) == false)
         {
-            Print("tokens: {}\n", Is_Digit(tokens[i - 1]) == false);
-            tokens.clear();
             Print("Error: expected number left of operator.\n");
             return false;
         }else if (i == tokens.size() - 1 || Is_Digit(tokens[i + 1]) == false)
         {
-            tokens.clear();
             Print("Error: expected number right of operator.\n");
             return false;
         }else
@@ -91,6 +89,12 @@ bool Eval_Basic_Op(size_t i, std::vector<std::string>& tokens)
     return true;
 }
 
+template<typename... Args>
+inline void println(const std::string& message, Args&&... args)
+{
+    std::cout << std::vformat(message, std::make_format_args(args...));
+}
+
 bool Eval_Parens(std::vector<std::string>& tokens, bool& has_Parens)
 {
     std::vector<size_t> right_Parens_Pos;
@@ -105,9 +109,10 @@ bool Eval_Parens(std::vector<std::string>& tokens, bool& has_Parens)
 
     if (left_Parens_Pos.size() != right_Parens_Pos.size())
     {
-        Print("Error: number of left parentheses, {}, does not match number of right parentheses, {}.", 
+        Print("Error: number of left parentheses, {}, does not match number of right parentheses, {}.\n", 
             left_Parens_Pos.size(), right_Parens_Pos.size());
 
+        
         return false;
     }
 
@@ -128,9 +133,6 @@ bool Eval_Parens(std::vector<std::string>& tokens, bool& has_Parens)
             right_Parens_Pos.erase(right_Parens_Pos.begin());
             left_Parens_Pos.erase(left_Parens_Pos.begin() + i);
         }
-
-        Print("right_Parens_Pos: ");
-        Print("{}\n", right_Parens_Pos);
     }
 
     has_Parens = false;
@@ -144,16 +146,25 @@ void Eval_Tokens(std::vector<std::string>& tokens)
     bool has_Exponents = true;
     bool has_Mul_Div = true;
     bool has_Add_Sub = true;
+
     while (tokens.size() > 1)
     {
         for (size_t i = 0; i < tokens.size(); i++)
         {
             if (has_Parens)
             {
-                if (not Eval_Parens(tokens, has_Parens)) return;
+                if (not Eval_Parens(tokens, has_Parens)) 
+                {
+                    tokens.clear();
+                    return;
+                }
             }else
             {
-                if (not Eval_Basic_Op(i, tokens)) return;
+                if (not Eval_Basic_Op(i, tokens))
+                {
+                    tokens.clear();
+                    return;
+                }
             }
         }
     }
