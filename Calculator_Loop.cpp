@@ -2,9 +2,10 @@
 #include <string>
 #include <cmath>
 #include <vector>
-#include <type_traits>
 #include <ranges>
 #include <utility>
+#include <concepts>
+#include <functional>
 #include "Print.h"
 #include "Match.h"
 #include "Util.h"
@@ -18,7 +19,7 @@ bool Find_Value(const std::vector<std::string>& tokens, size_t i, bool forwards 
         if (j == i) continue;
 
         // WIP: add check for functions that return types that cannot be compared to an int.
-        if (Is_Digit(tokens[j]))
+        if (To_Digit(tokens[j]))
         {
             return true;
         }
@@ -27,24 +28,24 @@ bool Find_Value(const std::vector<std::string>& tokens, size_t i, bool forwards 
     return false;
 }
 
-bool Eval_Basic_Op(size_t i, std::vector<std::string>& tokens)
+bool Eval_All_Basic_Op(size_t i, std::vector<std::string>& tokens)
 {
     bool do_Basic_Op = false;
 
-    if (Eq_Multi<Or>(tokens[i], "+", "-", "*", "/", "%", "pw"))
+    if (Eq_Multi<Or>(tokens[i], "+", "-", "*", "/", "%", "^"))
     {
         do_Basic_Op = true;
     }
 
     if (do_Basic_Op == true)
     {
-        if (i == 0 || Is_Digit(tokens[i - 1]) == false)
+        if (i == 0 || To_Digit(tokens[i - 1]) == false)
         {
-            Print("Error: expected number left of operator.\n");
+            Print("Error: expected number value left of operator.\n");
             return false;
-        }else if (i == tokens.size() - 1 || Is_Digit(tokens[i + 1]) == false)
+        }else if (i == tokens.size() - 1 || To_Digit(tokens[i + 1]) == false)
         {
-            Print("Error: expected number right of operator.\n");
+            Print("Error: expected number value right of operator.\n");
             return false;
         }else
         {
@@ -66,14 +67,12 @@ bool Eval_Basic_Op(size_t i, std::vector<std::string>& tokens)
                 return false;
             }
             
-
             Match(tokens[i])
             .Case("+", [&]{ value = left_Val + right_Val; })
             .Case("-", [&]{ value = left_Val - right_Val; })
             .Case("*", [&]{ value = left_Val * right_Val; })
             .Case("/", [&]{ value = left_Val / right_Val; })
             .Case("%", [&]{ value = std::fmod(left_Val, right_Val); })
-            .Case("pw", [&]{ value = std::pow(left_Val, right_Val); })
             .Default([]
             { 
                 Print("Error: expected basic operator: +, -, *, /, %, or pw.\n");
@@ -89,10 +88,38 @@ bool Eval_Basic_Op(size_t i, std::vector<std::string>& tokens)
     return true;
 }
 
-template<typename... Args>
-inline void println(const std::string& message, Args&&... args)
+template<Callable_Ts<double, double, double> F>
+bool Eval_Basic_Op(std::vector<std::string>& tokens, const std::string& valid_Ops, F op_function)
 {
-    std::cout << std::vformat(message, std::make_format_args(args...));
+    for (size_t i = 0; i < tokens.size(); i++)
+    {
+        bool token_Is_Op = false;
+        for (size_t j = 0; j < valid_Ops.size(); i++)
+        {
+            if (tokens[i] == valid_Ops[j])
+                token_Is_Op = true;
+        }
+
+        if (token_Is_Op)
+        {
+            if (i == 0 || To_Digit(tokens[i - 1]) == false)
+            {
+                Print("Error: expected number value left of operator.\n");
+                return false;
+            }else if (i == tokens.size() - 1 || To_Digit(tokens[i + 1]) == false)
+            {
+                Print("Error: expected number value right of operator.\n");
+                return false;
+            }else
+            {
+                tokens[i + 1] = std::to_string(op_function(std::stod(tokens[i - 1]), std::stod(tokens[i + 1])));
+                tokens.erase(tokens.begin() + i);
+                tokens.erase(tokens.begin() + i - 1);
+            }
+        }
+    }
+
+    return true;
 }
 
 bool Eval_Parens(std::vector<std::string>& tokens, bool& has_Parens)
@@ -125,7 +152,7 @@ bool Eval_Parens(std::vector<std::string>& tokens, bool& has_Parens)
                 if (tokens[j] == ")")
                     break;
 
-                Eval_Basic_Op(j, tokens);
+                Eval_All_Basic_Op(j, tokens);
             }
 
             tokens.erase(tokens.begin() + i);
@@ -139,33 +166,64 @@ bool Eval_Parens(std::vector<std::string>& tokens, bool& has_Parens)
     return true;
 }
 
+bool Eval_Expons(std::vector<std::string>& tokens, bool& has_Expons)
+{
+    for (size_t i = 0; i < tokens.size(); i++)
+    {
+        if (tokens[i] == "^")
+        {
+            if (i == 0 || To_Digit(tokens[i - 1]) == false)
+            {
+                Print("Error: expected number value left of operator.\n");
+                return false;
+            }else if (i == tokens.size() - 1 || To_Digit(tokens[i + 1]) == false)
+            {
+                Print("Error: expected number value right of operator.\n");
+                return false;
+            }else
+            {
+                tokens[i + 1] = std::to_string(std::pow(std::stod(tokens[i - 1]), std::stod(tokens[i + 1])));
+                tokens.erase(tokens.begin() + i);
+                tokens.erase(tokens.begin() + i - 1);
+            }
+        }
+    }
+
+    has_Expons = false;
+    return true;
+}
+
+//template<Callable F>
+//using Op_Func = [](double a, double b){ return F(a, b); };
+
 void Eval_Tokens(std::vector<std::string>& tokens)
 {
     // These booleans are used to implement PEMDAS.
     bool has_Parens = true;
-    bool has_Exponents = true;
-    bool has_Mul_Div = true;
-    bool has_Add_Sub = true;
+    bool no_Expons = false;
+    bool no_Mul_Div = false;
+    bool no_Add_Sub = false;
 
     while (tokens.size() > 1)
     {
         for (size_t i = 0; i < tokens.size(); i++)
         {
-            if (has_Parens)
-            {
-                if (not Eval_Parens(tokens, has_Parens)) 
-                {
-                    tokens.clear();
-                    return;
-                }
-            }else
-            {
-                if (not Eval_Basic_Op(i, tokens))
-                {
-                    tokens.clear();
-                    return;
-                }
-            }
+            auto ret = [&]{ tokens.clear(); return Match_Break; };
+            auto pow = [](double a, double b){ return std::pow(a, b); };
+            auto add = [](double a, double b){ return a + b; };
+            auto sub = [](double a, double b){ return a - b; };
+            auto mul = [](double a, double b){ return a * b; };
+            auto div = [](double a, double b){ return a / b; };
+            auto mod = [](double a, double b){ return std::fmod(a, b); };
+
+            Match(false)
+            .Case(Eval_Parens(tokens, has_Parens), ret)
+            .Case(Eval_Basic_Op(tokens, "^", pow), ret)
+            .Case(Eval_Basic_Op(tokens, "*", mul), ret)
+            .Case(Eval_Basic_Op(tokens, "/", div), ret)
+            .Case(Eval_Basic_Op(tokens, "%", mod), ret)
+            .Case(Eval_Basic_Op(tokens, "+", add), ret)
+            .Case(Eval_Basic_Op(tokens, "-", sub), ret);
         }
     }
 
@@ -191,10 +249,10 @@ void Calculator_Loop()
 
         for (size_t i = 0; i < input.size(); i++)
         {
-            if (i != input.size() - 1 && input[i] == 'p' && input[i + 1] == 'w')
+            /*if (i != input.size() - 1 && input[i] == 'p' && input[i + 1] == 'w')
             {
                 tokens.push_back(std::string("") + input[i] + input[i + 1]);
-            }
+            }*/
 
             switch(input[i])
             {
@@ -207,6 +265,7 @@ void Calculator_Loop()
                 case ')':
                 case '<':
                 case '>':
+                case '^':
                 case ',':
                     if (input_Scanned != "")
                         tokens.push_back(input_Scanned);

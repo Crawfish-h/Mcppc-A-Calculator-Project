@@ -3,14 +3,9 @@
 #include <format>
 #include <iostream>
 #include <type_traits>
+#include "Util.h"
 
-template<typename T>
-concept Iterable = requires(T t)
-{
-    requires (!std::is_same<T, std::string>::value);
-    t.begin();
-    t.end();
-} && !std::same_as<std::remove_cvref_t<T>, std::string>;
+
 
 template<typename... Args>
 void Print_Container(const std::string& message, Args&&... args)
