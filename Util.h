@@ -4,11 +4,12 @@
 #include <optional>
 #include <any>
 #include <memory>
+#include <vector>
 
 enum Comp { And, Or };
 
 template<Comp comp = And, typename T, typename ...Args>
-bool Eq_Multi(T&& value, Args&&... args)
+inline bool Eq_Multi(T&& value, Args&&... args)
 {
     if (comp == And)
         return ((value == args) && ...);
@@ -17,22 +18,27 @@ bool Eq_Multi(T&& value, Args&&... args)
 }
 
 // Returns true if any trailing zeros were removed.
-inline bool Remove_Trailing_Zeros(std::string& number_String)
+inline ssize_t Remove_Trailing_Zeros(std::string& number_String)
 {
-    bool removed_Zero = false;
+    size_t num_Removed = 0;
     for (ssize_t i = number_String.size() - 1; i > -1; i--)
     {
         if (number_String[i] == '0')
         {
             number_String.erase(number_String.begin() + i);
-            removed_Zero = true;
+            num_Removed++;
         }else
         {
             break;
         }
     }
 
-    return removed_Zero;
+    if (number_String[number_String.size() - 1] == '.')
+    {
+        number_String.erase(number_String.begin() + number_String.size() - 1);
+    }
+
+    return num_Removed;
 }
 
 // If 'string' is a function convert it do a digit and then return true.
@@ -51,6 +57,36 @@ inline bool To_Digit(const std::string& string)
     }
 
     return true;
+}
+
+template<typename C, typename T>
+inline size_t Remove_All_Of(C& container, T value)
+{
+    size_t num_Removed = 0;
+    size_t value_Num = 0;
+
+    for (auto& element : container)
+    {
+        if (element == value)
+        {
+            value_Num++;
+        }
+    }
+    
+    while (value_Num > 0)
+    {
+        for (size_t i = 0; i < container.size(); i++)
+        {
+            if (container[i] == value)
+            {
+                container.erase(container.begin() + i);
+                value_Num--;
+                num_Removed++;
+            }
+        }
+    }
+
+    return num_Removed;
 }
 
 template <typename F>
@@ -86,38 +122,3 @@ concept Iterable = requires(T t)
     t.end();
 } && !std::same_as<std::remove_cvref_t<T>, std::string>;
 
-template<Callable C>
-class Logic
-{
-    C Function_;
-    bool Cond_ = false;
-
-    template<class T> 
-    struct Implicit_Any
-    {
-        Implicit_Any(T& t) : Any(t) {}
-        std::any Any;
-        operator T() const 
-        {
-            return std::any_cast<T>(Any);
-        }
-    };
-
-public:
-    Logic(bool expr, C function) {}
-        //{ Cond_ = expr; Function_ = function; }
-
-    /*template<typename ...Args>
-    std::optional<Implicit_Any> If(bool expr, Args... args)
-    {
-        if (Cond_ != true)
-        {
-            Cond_ = expr;
-        }else
-        {
-            return Implicit_Any(*Function_(args...));
-        }
-
-        return {};
-    }*/
-};

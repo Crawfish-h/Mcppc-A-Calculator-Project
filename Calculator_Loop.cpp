@@ -10,10 +10,11 @@
 #include "Match.h"
 #include "Util.h"
 
-bool Find_Value(const std::vector<std::string>& tokens, size_t i, bool forwards = true)
-{
+std::tuple<std::string&, size_t> Find_Value(std::vector<std::string>& tokens, size_t i, bool left = true)
+{    
     int iter_Val = 1;
-    if (forwards == false) iter_Val = -1;
+    std::string found_Token = "aaa";
+    if (left == false) iter_Val = -1;
     for (ssize_t j = i; j < tokens.size() && j > -1; j += iter_Val)
     {
         if (j == i) continue;
@@ -21,83 +22,37 @@ bool Find_Value(const std::vector<std::string>& tokens, size_t i, bool forwards 
         // WIP: add check for functions that return types that cannot be compared to an int.
         if (To_Digit(tokens[j]))
         {
-            return true;
+            return { tokens[j], j };
+        }else if (tokens[j] != "")
+        {
+            found_Token = tokens[j];
+            break;
         }
     }
 
-    return false;
+    if (left == true)
+        Print("Error: could not find left digit. Instead, found: {}", found_Token);
+    else
+        Print("Error: could not find right digit. Instead, found: {}", found_Token);
+
+    return { tokens[i], i };
 }
 
-bool Eval_All_Basic_Op(size_t i, std::vector<std::string>& tokens)
-{
-    bool do_Basic_Op = false;
-
-    if (Eq_Multi<Or>(tokens[i], "+", "-", "*", "/", "%", "^"))
-    {
-        do_Basic_Op = true;
-    }
-
-    if (do_Basic_Op == true)
-    {
-        if (i == 0 || To_Digit(tokens[i - 1]) == false)
-        {
-            Print("Error: expected number value left of operator.\n");
-            return false;
-        }else if (i == tokens.size() - 1 || To_Digit(tokens[i + 1]) == false)
-        {
-            Print("Error: expected number value right of operator.\n");
-            return false;
-        }else
-        {
-            double value = 0.0;
-            double left_Val = 0.0;
-            double right_Val = 0.0;
-
-            try
-            {
-                left_Val = std::stod(tokens[i - 1]);
-                right_Val = std::stod(tokens[i + 1]);
-            }catch(const std::invalid_argument& ia)
-            {
-                Print("Exeception thrown: 'std::invalid_argument'\n");
-                Print("left_Val as string: {}\n", tokens[i - 1]);
-                Print("right_Val as string: {}\n", tokens[i + 1]);
-                Print("tokens: ");
-                Print("{}\n", tokens);
-                return false;
-            }
-            
-            Match(tokens[i])
-            .Case("+", [&]{ value = left_Val + right_Val; })
-            .Case("-", [&]{ value = left_Val - right_Val; })
-            .Case("*", [&]{ value = left_Val * right_Val; })
-            .Case("/", [&]{ value = left_Val / right_Val; })
-            .Case("%", [&]{ value = std::fmod(left_Val, right_Val); })
-            .Default([]
-            { 
-                Print("Error: expected basic operator: +, -, *, /, %, or pw.\n");
-                return false;
-            });
-
-            tokens[i + 1] = std::to_string(value);
-            tokens.erase(tokens.begin() + i);
-            tokens.erase(tokens.begin() + i - 1);
-        }
-    }
-
-    return true;
-}
-
-template<Callable_Ts<double, double, double> F>
-bool Eval_Basic_Op(std::vector<std::string>& tokens, const std::string& valid_Ops, F op_function)
+template<Callable_Ts<double, double, double>... Block_Ts>
+bool Eval_Basic_Op(std::vector<std::string>& tokens, const std::string& valid_Ops, Block_Ts... op_Blocks)
 {
     for (size_t i = 0; i < tokens.size(); i++)
     {
         bool token_Is_Op = false;
-        for (size_t j = 0; j < valid_Ops.size(); i++)
+        
+        size_t j = 0;
+        for (; j < valid_Ops.size(); j++)
         {
-            if (tokens[i] == valid_Ops[j])
+            if (tokens[i][0] == valid_Ops[j])
+            {
                 token_Is_Op = true;
+                break;
+            }
         }
 
         if (token_Is_Op)
@@ -105,16 +60,23 @@ bool Eval_Basic_Op(std::vector<std::string>& tokens, const std::string& valid_Op
             if (i == 0 || To_Digit(tokens[i - 1]) == false)
             {
                 Print("Error: expected number value left of operator.\n");
+                Print("Tokens: ");
+                Print("{}\n", tokens);
                 return false;
             }else if (i == tokens.size() - 1 || To_Digit(tokens[i + 1]) == false)
             {
                 Print("Error: expected number value right of operator.\n");
+                Print("Tokens: ");
+                Print("{}\n", tokens);
                 return false;
             }else
             {
-                tokens[i + 1] = std::to_string(op_function(std::stod(tokens[i - 1]), std::stod(tokens[i + 1])));
+                std::vector<std::function<double(double, double)>> blocks = { op_Blocks... };
+                tokens[i + 1] = std::to_string(blocks[j](std::stod(tokens[i - 1]), std::stod(tokens[i + 1])));
+                
                 tokens.erase(tokens.begin() + i);
                 tokens.erase(tokens.begin() + i - 1);
+                i -= 2;
             }
         }
     }
@@ -122,93 +84,75 @@ bool Eval_Basic_Op(std::vector<std::string>& tokens, const std::string& valid_Op
     return true;
 }
 
-bool Eval_Parens(std::vector<std::string>& tokens, bool& has_Parens)
+std::optional<double> Eval_Tokens(std::vector<std::string>& tokens, bool clear_Tokens = true, bool print_Value = true);
+
+bool Eval_Parens(std::vector<std::string>& tokens)
 {
-    std::vector<size_t> right_Parens_Pos;
-    std::vector<size_t> left_Parens_Pos;
-    for (size_t i = 0; i < tokens.size(); i++)
-    {
-        if (tokens[i] == "(")
-            left_Parens_Pos.push_back(i);
-        else if (tokens[i] == ")")
-            right_Parens_Pos.push_back(i);
-    }
+    std::vector<std::string> stack;
 
-    if (left_Parens_Pos.size() != right_Parens_Pos.size())
+    for (const auto& token : tokens)
     {
-        Print("Error: number of left parentheses, {}, does not match number of right parentheses, {}.\n", 
-            left_Parens_Pos.size(), right_Parens_Pos.size());
-
-        
-        return false;
-    }
-
-    while (right_Parens_Pos.size() > 0)
-    {
-        for (size_t i : left_Parens_Pos | std::views::reverse)
+        if (token == ")")
         {
-            for (size_t j = i + 1; j < right_Parens_Pos[0] && j < tokens.size(); j++)
+            // Collect everything inside the parentheses
+            std::vector<std::string> inner;
+            while (!stack.empty() && stack.back() != "(")
             {
-                if (tokens[j] == ")")
-                    break;
-
-                Eval_All_Basic_Op(j, tokens);
+                inner.insert(inner.begin(), stack.back());
+                stack.pop_back();
             }
 
-            tokens.erase(tokens.begin() + i);
-            tokens.erase(tokens.begin() + right_Parens_Pos[0]);
-            right_Parens_Pos.erase(right_Parens_Pos.begin());
-            left_Parens_Pos.erase(left_Parens_Pos.begin() + i);
-        }
-    }
-
-    has_Parens = false;
-    return true;
-}
-
-bool Eval_Expons(std::vector<std::string>& tokens, bool& has_Expons)
-{
-    for (size_t i = 0; i < tokens.size(); i++)
-    {
-        if (tokens[i] == "^")
-        {
-            if (i == 0 || To_Digit(tokens[i - 1]) == false)
+            if (stack.empty())
             {
-                Print("Error: expected number value left of operator.\n");
+                Print("Mismatched parentheses: missing '('.\n");
                 return false;
-            }else if (i == tokens.size() - 1 || To_Digit(tokens[i + 1]) == false)
+            }
+
+            // Remove the '('
+            stack.pop_back();
+
+            // Evaluate the inner expression
+            double value = 0.0f;
+            if (auto option = Eval_Tokens(inner))
             {
-                Print("Error: expected number value right of operator.\n");
-                return false;
+                value = option.value();
             }else
             {
-                tokens[i + 1] = std::to_string(std::pow(std::stod(tokens[i - 1]), std::stod(tokens[i + 1])));
-                tokens.erase(tokens.begin() + i);
-                tokens.erase(tokens.begin() + i - 1);
+                Print("Could not evaluate parentheses.\n");
+                return false;
             }
+                
+            // Push result back as a string
+            stack.push_back(std::to_string(value));
+        }else
+        {
+            stack.push_back(token);
         }
     }
 
-    has_Expons = false;
-    return true;
+    // If any parentheses remain, it's an error
+    for (const auto& t : stack)
+    {
+        if (t == "(" || t == ")")
+        {
+            Print("Mismatched parentheses in expression.\n");
+            return false;
+        }
+    }
+
+    // Copy evaluated expression to tokens vector.
+   if (stack.size() > 0) tokens = stack;
+   return true;
 }
 
-//template<Callable F>
-//using Op_Func = [](double a, double b){ return F(a, b); };
-
-void Eval_Tokens(std::vector<std::string>& tokens)
+std::optional<double> Eval_Tokens(std::vector<std::string>& tokens, bool clear_Tokens, bool print_Value)
 {
-    // These booleans are used to implement PEMDAS.
-    bool has_Parens = true;
-    bool no_Expons = false;
-    bool no_Mul_Div = false;
-    bool no_Add_Sub = false;
-
     while (tokens.size() > 1)
     {
         for (size_t i = 0; i < tokens.size(); i++)
         {
-            auto ret = [&]{ tokens.clear(); return Match_Break; };
+            bool error = false;
+            auto ret = [&]{ tokens.clear(); error = true; return Match_Break; };
             auto pow = [](double a, double b){ return std::pow(a, b); };
             auto add = [](double a, double b){ return a + b; };
             auto sub = [](double a, double b){ return a - b; };
@@ -217,19 +161,19 @@ void Eval_Tokens(std::vector<std::string>& tokens)
             auto mod = [](double a, double b){ return std::fmod(a, b); };
 
             Match(false)
-            .Case(Eval_Parens(tokens, has_Parens), ret)
+            .Case(Eval_Parens(tokens), ret)
             .Case(Eval_Basic_Op(tokens, "^", pow), ret)
-            .Case(Eval_Basic_Op(tokens, "*", mul), ret)
-            .Case(Eval_Basic_Op(tokens, "/", div), ret)
-            .Case(Eval_Basic_Op(tokens, "%", mod), ret)
-            .Case(Eval_Basic_Op(tokens, "+", add), ret)
-            .Case(Eval_Basic_Op(tokens, "-", sub), ret);
+            .Case(Eval_Basic_Op(tokens, "*/%", mul, div, mod), ret)
+            .Case(Eval_Basic_Op(tokens, "+-", add, sub), ret);
+
+            if (error == true) return {};
         }
     }
 
     Remove_Trailing_Zeros(tokens[0]);
-    Print("{}\n", tokens[0]);
-    tokens.clear();
+    if (print_Value == true) Print("{}\n", tokens[0]);
+    if (clear_Tokens == true) tokens.clear();
+    return std::stod(tokens[0]);
 }
 
 void Calculator_Loop()
@@ -256,8 +200,13 @@ void Calculator_Loop()
 
             switch(input[i])
             {
-                case '+':
                 case '-':
+                    if (input[i + 1] != ' ' || input[i + 1] != '-')
+                    {
+                        input_Scanned += input[i];
+                        break;
+                    }
+                case '+':
                 case '*':
                 case '/':
                 case '%':

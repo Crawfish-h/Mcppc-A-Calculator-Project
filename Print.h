@@ -17,7 +17,6 @@ void Print_Container(const std::string& message, Args&&... args)
 template<Iterable... Args>
 void Print_Container(const std::string& message, Args&&... args)
 {
-    std::cout << "Iterable\n";
     std::string next_Line = "";
     std::string msg_No_Nl = message; // message with no new line.
     if (message.contains("\n"))

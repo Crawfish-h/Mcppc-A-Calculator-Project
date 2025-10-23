@@ -13,7 +13,7 @@ namespace Match_Detail
     template<typename... Args>
     struct Case_Struct
     {
-        Case_Struct(std::tuple<Args...>* values) : Values(values) {}
+        Case_Struct(std::tuple<Args...>& values) : Values(values) {}
 
         template<typename F>
         Case_Struct& Case(Args... values, F block)
@@ -22,7 +22,7 @@ namespace Match_Detail
             {
                 std::tuple<Args...> case_Values(values...);
 
-                if (case_Values == *Values)
+                if (case_Values == Values)
                 {
                     // Getting the address of the return type is always safe here
                     // because it is just being used to set the type of block_val.
@@ -30,10 +30,8 @@ namespace Match_Detail
                     if (typeid(block_val) == typeid(Match_Break_Type))
                     {
                         Match_Broken = true;
-                        Print("Match_Break\n");
                     }
 
-                    Values = &case_Values;
                     Found_Value = true;
                 }
             }
@@ -50,10 +48,10 @@ namespace Match_Detail
                 return {};
             }
             
-            return *Values;
+            return Values;
         }
     private:
-        std::tuple<Args...>* Values;
+        std::tuple<Args...> Values;
         bool Found_Value = false;
         bool Match_Broken = false;
     };
@@ -62,9 +60,9 @@ namespace Match_Detail
 template<typename... Args>
 auto Match(Args... args)
 {
-    std::tuple<Args...> values = { args... };
+    std::tuple<Args...> values(args...);
 
-    return Match_Detail::Case_Struct<Args...>(&values);
+    return Match_Detail::Case_Struct<Args...>(values);
 }
 
 /*
