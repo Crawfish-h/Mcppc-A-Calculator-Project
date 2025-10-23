@@ -48,7 +48,9 @@ bool Eval_Basic_Op(std::vector<std::string>& tokens, const std::string& valid_Op
         size_t j = 0;
         for (; j < valid_Ops.size(); j++)
         {
-            if (tokens[i][0] == valid_Ops[j])
+            std::string current_Op = " ";
+            current_Op[0] = valid_Ops[j];
+            if (tokens[i] == current_Op)
             {
                 token_Is_Op = true;
                 break;
@@ -176,6 +178,42 @@ std::optional<double> Eval_Tokens(std::vector<std::string>& tokens, bool clear_T
     return std::stod(tokens[0]);
 }
 
+// Returns false if tokens contains no negative numbers.
+bool Eval_Minus(std::vector<std::string>& tokens)
+{
+    std::vector<std::string> evaled_Tokens;
+    bool add_Minus = false; // If true, next token is negative.
+    bool found_Negative_Token = false;
+
+    for (size_t i = 0; i < tokens.size(); i++)
+    {
+        if (Is_Subtraction(tokens, i))
+        {
+            evaled_Tokens.push_back(tokens[i]);
+        }else if (tokens[i] == "-")
+        {
+            add_Minus = true;
+            continue;
+        }else if (add_Minus == false)
+        {
+            evaled_Tokens.push_back(tokens[i]);
+        }
+
+        if (add_Minus == true)
+        {
+            found_Negative_Token = true;
+            tokens[i].insert(0, "-");
+            add_Minus = false;
+            evaled_Tokens.push_back(tokens[i]);
+        }
+    }
+
+    if (found_Negative_Token)
+        tokens = evaled_Tokens;
+
+    return found_Negative_Token;
+}
+
 void Calculator_Loop()
 {
     std::string input = "";
@@ -193,19 +231,9 @@ void Calculator_Loop()
 
         for (size_t i = 0; i < input.size(); i++)
         {
-            /*if (i != input.size() - 1 && input[i] == 'p' && input[i + 1] == 'w')
-            {
-                tokens.push_back(std::string("") + input[i] + input[i + 1]);
-            }*/
-
             switch(input[i])
             {
                 case '-':
-                    if (input[i + 1] != ' ' || input[i + 1] != '-')
-                    {
-                        input_Scanned += input[i];
-                        break;
-                    }
                 case '+':
                 case '*':
                 case '/':
@@ -240,7 +268,15 @@ void Calculator_Loop()
                 if (tok[i] == ' ')
                     tok.erase(tok.begin() + i);
         }
-        
+
+        Print("Before: ");
+        Print("{}\n", tokens);
+
+        Eval_Minus(tokens);
+
+        Print("After: ");
+        Print("{}\n", tokens);
+
         Eval_Tokens(tokens);
     }
 }

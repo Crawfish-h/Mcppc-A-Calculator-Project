@@ -8,8 +8,8 @@
 
 enum Comp { And, Or };
 
-template<Comp comp = And, typename T, typename ...Args>
-inline bool Eq_Multi(T&& value, Args&&... args)
+template<typename T, typename ...Args>
+inline bool Eqm(T&& value, Comp comp, Args&&... args)
 {
     if (comp == And)
         return ((value == args) && ...);
@@ -122,3 +122,28 @@ concept Iterable = requires(T t)
     t.end();
 } && !std::same_as<std::remove_cvref_t<T>, std::string>;
 
+// Returns true if token is a basic operator (+-/*^%).
+inline bool Is_Op(const std::string& token)
+{
+    if (Eqm(token, Or, "+", "-", "/", "*", "^", "%"))
+        return true;
+
+    return false;
+}
+
+// Returns true if a minus sign represents a subtraction.
+// Returns false if a minus sign represents a negative value or is not a minus.
+inline bool Is_Subtraction(const std::vector<std::string>& tokens, size_t token_Index)
+{
+    if (tokens[token_Index] != "-" ||
+        token_Index == 0 || 
+        tokens[token_Index - 1] == ")") 
+        return false;
+
+    if (Is_Op(tokens[token_Index - 1]))
+        return false;
+    else
+        return true;
+
+    return true;
+}
